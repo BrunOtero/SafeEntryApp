@@ -16,10 +16,10 @@ dependencies:
   shared_preferences: ^2.2.2
 
   # Notificações e QR Code
-  flutter_local_notifications: ^19.3.0
-  qr_code_scanner: ^1.0.1  # Leitor de QR code
-  qr_flutter: ^4.1.0       # ✅ Gerador de QR code
-  permission_handler: ^10.4.0  # Para gerenciar permissões
+  flutter_local_notifications: ^17.1.0
+  qr_code_scanner: ^1.0.1
+  qr_flutter: ^4.1.0
+  permission_handler: ^10.4.0
 
   # Utilitários
   jwt_decoder: ^2.0.1
@@ -29,18 +29,19 @@ dependencies:
   intl: ^0.20.2
 
   # Firebase
-  firebase_core: ^3.14.0
-  firebase_auth: ^5.6.0
-  firebase_messaging: ^15.2.7
-  cloud_firestore: ^5.6.9
+  firebase_core: ^2.14.0
+  firebase_auth: ^4.6.3
+  firebase_messaging: ^14.7.16
+  cloud_firestore: ^4.8.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^3.0.1
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/icons/logo.png
+    - assets/icons/logo.svg
+    - assets/icons/google.png
