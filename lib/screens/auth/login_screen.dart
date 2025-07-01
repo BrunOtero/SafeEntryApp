@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../constants/app_colors.dart';
+import 'package:safeentry/constants/app_colors.dart';
+import 'package:safeentry/screens/resident/home_resident.dart';
+import 'package:safeentry/screens/concierge/home_concierge.dart';
+import 'package:safeentry/services/auth_service.dart';
+import 'package:safeentry/dto/user_type.dart';
+import 'package:safeentry/screens/auth/register_screen.dart'; // Add this import
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final TextEditingController _emailController = TextEditingController();
+    final TextEditingController _passwordController = TextEditingController();
+    final AuthService _authService = AuthService();
+
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -22,13 +31,10 @@ class LoginScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo aumentada (já contém o nome SAFEENTRY)
                 _buildLogo(context),
-
                 const SizedBox(height: 48),
-
-                // Campo de E-mail
                 TextField(
+                  controller: _emailController,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
@@ -45,11 +51,9 @@ class LoginScreen extends StatelessWidget {
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
-
                 const SizedBox(height: 16),
-
-                // Campo de Senha
                 TextField(
+                  controller: _passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     filled: true,
@@ -66,15 +70,12 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Opção "Esqueci a senha"
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      // Navegar para tela de recuperação de senha
+                      // Navegar para tela de recuperação de senha (se houver)
                     },
                     child: const Text(
                       'Esqueci minha senha',
@@ -82,25 +83,60 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // Botão ENTRAR com verde mais forte
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(
-                        0xFF00C853,
-                      ), // Verde mais vibrante
+                      backgroundColor: const Color(0xFF00C853),
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       elevation: 2,
                     ),
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/resident');
+                    onPressed: () async {
+                      try {
+                        final authResponse = await _authService.login(
+                          _emailController.text,
+                          _passwordController.text,
+                        );
+                        if (context.mounted) {
+                          if (authResponse.tipoUsuario == UserType.morador.name) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ResidentHomeScreen(),
+                              ),
+                            );
+                          } else if (authResponse.tipoUsuario == UserType.porteiro.name ||
+                                     authResponse.tipoUsuario == UserType.admin.name) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ConciergeHomeScreen(),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Tipo de usuário não reconhecido.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            await _authService.logout();
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
                     },
                     child: const Text(
                       'ENTRAR',
@@ -112,37 +148,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
-                // Botão ENTRAR COMO PORTEIRO
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      side: const BorderSide(color: Colors.white),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/concierge-login');
-                    },
-                    child: const Text(
-                      'ENTRAR COMO PORTEIRO',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-
                 const SizedBox(height: 30),
-
-                // Divisor "OU"
                 Row(
                   children: [
                     const Expanded(child: Divider(color: Colors.white70)),
@@ -156,10 +162,7 @@ class LoginScreen extends StatelessWidget {
                     const Expanded(child: Divider(color: Colors.white70)),
                   ],
                 ),
-
                 const SizedBox(height: 30),
-
-                // Botão de Login com Google
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -184,10 +187,7 @@ class LoginScreen extends StatelessWidget {
                     },
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Link para cadastro
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -197,7 +197,10 @@ class LoginScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        // Navegar para tela de cadastro
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const RegisterScreen()), // Navigate to RegisterScreen
+                        );
                       },
                       child: const Text(
                         'Cadastre-se',
@@ -222,15 +225,13 @@ class LoginScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 20),
       child: SvgPicture.asset(
         'assets/icons/logo.svg',
-        width:
-            MediaQuery.of(context).size.width * 0.5, // 50% da largura da tela
-        placeholderBuilder:
-            (context) => Container(
-              width: 150,
-              height: 150,
-              color: Colors.grey[300],
-              child: const Center(child: CircularProgressIndicator()),
-            ),
+        width: MediaQuery.of(context).size.width * 0.5,
+        placeholderBuilder: (context) => Container(
+          width: 150,
+          height: 150,
+          color: Colors.grey[300],
+          child: const Center(child: CircularProgressIndicator()),
+        ),
       ),
     );
   }

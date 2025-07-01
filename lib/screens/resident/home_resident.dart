@@ -1,15 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:safeentry/constants/app_colors.dart';
-import 'package:safeentry/models/visitor.dart';
-import 'package:safeentry/screens/resident/my_qr_code_screen.dart';
-import 'package:safeentry/screens/resident/concierge_screen.dart';
-import 'package:safeentry/screens/resident/alerts_screen.dart';
-import 'package:safeentry/screens/resident/settings_screen.dart';
-import 'package:safeentry/screens/resident/help_screen.dart';
+import 'package:safeentry/services/visit_service.dart';
+import 'package:safeentry/services/auth_service.dart';
+import 'package:safeentry/dto/agendamento_response.dart';
+import 'package:safeentry/dto/agendamento_status.dart';
+import 'package:intl/intl.dart';
+import 'package:safeentry/screens/resident/appointments_list_screen.dart';
 
 class ResidentHomeScreen extends StatefulWidget {
   const ResidentHomeScreen({super.key});
@@ -19,52 +19,64 @@ class ResidentHomeScreen extends StatefulWidget {
 }
 
 class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
-  List<Visitor> visitors = [];
-  String? generatedQRCode;
-  Visitor? currentVisitor;
+  late Future<List<AgendamentoResponse>> _pendingAppointmentsFuture;
   late StreamSubscription<QuerySnapshot> _notificationSubscription;
+  String? _currentUserName;
+  String? _currentUserId;
 
-  final List<Map<String, dynamic>> primaryFeatures = [
-    {
-      'icon': Icons.qr_code,
-      'title': 'Meu QR Code',
-      'color': Colors.blue[700]!,
-      'screen': const MyQrCodeScreen(),
-    },
-    {
-      'icon': Icons.security,
-      'title': 'Portaria',
-      'color': Colors.orange[700]!,
-      'screen': const ConciergeScreen(),
-    },
-    {
-      'icon': Icons.notifications,
-      'title': 'Alertas',
-      'color': Colors.red[700]!,
-      'screen': const AlertsScreen(),
-    },
-  ];
-
-  final List<Map<String, dynamic>> secondaryFeatures = [
-    {
-      'icon': Icons.settings,
-      'title': 'Configurações',
-      'color': Colors.purple[700]!,
-      'screen': const SettingsScreen(),
-    },
-    {
-      'icon': Icons.help,
-      'title': 'Ajuda',
-      'color': Colors.teal[700]!,
-      'screen': const HelpScreen(),
-    },
-  ];
+  final VisitService _visitService = VisitService();
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    _setupNotificationListener();
-    _loadVisitors();
+    _loadUserInfoAndInitializeData();
+  }
+
+  Future<void> _loadUserInfoAndInitializeData() async {
+    _currentUserName = await _authService.getUserName();
+    _currentUserId = await _authService.getUserId();
+
+    if (mounted) {
+      setState(() {
+        _pendingAppointmentsFuture = _fetchAndFilterPendingAppointments();
+      });
+    }
+
+    if (_currentUserId != null) {
+      _setupNotificationListener(_currentUserId!);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ID do usuário não disponível. Por favor, faça login novamente.')),
+        );
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    }
+  }
+
+  Future<List<AgendamentoResponse>> _fetchAndFilterPendingAppointments() async {
+    try {
+      final allAppointments = await _visitService.getMyAppointments();
+      final filteredAppointments = allAppointments
+          .where((app) => app.status == AgendamentoStatus.pendente)
+          .toList();
+      filteredAppointments.sort((a, b) => b.dataHoraVisita.compareTo(a.dataHoraVisita)); // Ordenação do mais recente para o mais antigo
+      return filteredAppointments;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar agendamentos pendentes: $e')),
+        );
+      }
+      return [];
+    }
+  }
+
+  Future<void> _refreshPendingAppointments() async {
+    setState(() {
+      _pendingAppointmentsFuture = _fetchAndFilterPendingAppointments();
+    });
   }
 
   @override
@@ -73,63 +85,46 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
     super.dispose();
   }
 
-  void _setupNotificationListener() {
-    _notificationSubscription = FirebaseFirestore.instance
+  void _setupNotificationListener(String residentId) {
+    FirebaseFirestore.instance
         .collection('notifications')
-        .where('residentId', isEqualTo: 'ID_DO_MORADOR')
+        .where('residentId', isEqualTo: residentId)
         .snapshots()
         .listen((snapshot) {
-          for (var doc in snapshot.docs) {
-            final message = doc['message'];
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(message)));
-              }
-            });
+      for (var doc in snapshot.docs) {
+        final message = doc['message'];
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(message)),
+            );
           }
         });
+      }
+    });
   }
 
-  Future<void> _loadVisitors() async {
-    final snapshot =
-        await FirebaseFirestore.instance
-            .collection('visitors')
-            .where('residentId', isEqualTo: 'ID_DO_MORADOR')
-            .get();
+  Future<void> _registerVisitor(String visitorName, String visitorDocument, String? visitorVehicle, DateTime visitTime) async {
+    try {
+      await _visitService.createAppointment(
+        visitorName: visitorName,
+        visitorDocument: visitorDocument,
+        visitorVehicle: visitorVehicle,
+        visitTime: visitTime,
+      );
 
-    if (mounted) {
-      setState(() {
-        visitors =
-            snapshot.docs.map((doc) => Visitor.fromMap(doc.data())).toList();
-      });
-    }
-  }
-
-  Future<void> _registerVisitor(String visitorName) async {
-    final visitorId = DateTime.now().millisecondsSinceEpoch.toString();
-    final visitor = Visitor(
-      id: visitorId,
-      name: visitorName,
-      residentId: 'ID_DO_MORADOR',
-      residentName: 'Heloisa',
-      entryTime: DateTime.now(),
-      unit: 'Apto 101',
-      status: 'Pendente',
-    );
-
-    await FirebaseFirestore.instance
-        .collection('visitors')
-        .doc(visitorId)
-        .set(visitor.toMap());
-
-    if (mounted) {
-      setState(() {
-        visitors.add(visitor);
-        generatedQRCode = jsonEncode(visitor.toMap());
-        currentVisitor = visitor;
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Agendamento criado com sucesso!')),
+        );
+        _refreshPendingAppointments();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar agendamento: $e')),
+        );
+      }
     }
   }
 
@@ -140,175 +135,91 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
         title: const Text('Painel do Morador'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await _authService.logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Olá, Heloisa.',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Tenha uma boa estadia!',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _registerNewVisitor(context),
-                icon: const Icon(Icons.person_add, color: Colors.white),
-                label: const Text(
-                  'CADASTRAR VISITANTE',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
+      body: RefreshIndicator(
+        onRefresh: _refreshPendingAppointments,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch, // Garante que os filhos se estendam horizontalmente
+            children: [
+              _buildWelcomeCard(_currentUserName), // Adiciona o card de boas-vindas
+              const Divider(height: 32),
+              _buildFeatureCard(
+                icon: Icons.person_add,
+                title: 'Cadastrar Visitante',
+                color: Theme.of(context).colorScheme.primary,
+                onTap: () => _registerNewVisitorDialog(context),
               ),
-            ),
-            const SizedBox(height: 24),
-
-            if (currentVisitor != null) _buildQRCodeCard(currentVisitor!),
-            const SizedBox(height: 24),
-
-            const Text(
-              'Acesso Rápido',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 0.9,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+              const SizedBox(height: 10),
+              _buildFeatureCard(
+                icon: Icons.event_note,
+                title: 'Agendamentos Cadastrados',
+                color: Theme.of(context).colorScheme.secondary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AppointmentsListScreen()),
+                  );
+                },
               ),
-              itemCount: primaryFeatures.length,
-              itemBuilder: (context, index) {
-                return _buildSmallFeatureCard(primaryFeatures[index]);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 0.9,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+              const SizedBox(height: 24),
+              FutureBuilder<List<AgendamentoResponse>>(
+                future: _pendingAppointmentsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Erro: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.qr_code_2_outlined, size: 80, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'Nenhum QR Code pendente no momento.',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    final pendingAppointments = snapshot.data!;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Seus QR Codes Pendentes:',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        ...pendingAppointments.map(_buildQRCodeCard).toList(),
+                      ],
+                    );
+                  }
+                },
               ),
-              itemCount: secondaryFeatures.length,
-              itemBuilder: (context, index) {
-                return _buildSmallFeatureCard(secondaryFeatures[index]);
-              },
-            ),
-            const SizedBox(height: 24),
-
-            const Text(
-              'Visitantes Cadastrados:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildVisitorList(),
-
-            const Padding(
-              padding: EdgeInsets.only(top: 16.0),
-              child: Align(
-                alignment: Alignment.center,
+              const SizedBox(height: 32),
+              const Center(
                 child: Text(
                   'Versão 3.2.3/4/195',
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQRCodeCard(Visitor visitor) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Text(
-              'QR Code para:',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(visitor.name, style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 16),
-            QrImageView(
-              data: generatedQRCode!,
-              version: QrVersions.auto,
-              size: 150,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Mostre este código na portaria',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Unidade: ${visitor.unit ?? "Não informado"}',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallFeatureCard(Map<String, dynamic> feature) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      color: feature['color'].withOpacity(0.15),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => feature['screen']),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(feature['icon'], size: 24, color: feature['color']),
-              const SizedBox(height: 8),
-              Text(
-                feature['title'],
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: feature['color'],
-                ),
-              ),
             ],
           ),
         ),
@@ -316,195 +227,291 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
     );
   }
 
-  Widget _buildVisitorList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('visitors')
-              .where('residentId', isEqualTo: 'ID_DO_MORADOR')
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(
-            child: Column(
-              children: [
-                Icon(Icons.people_alt_outlined, size: 60, color: Colors.grey),
-                const SizedBox(height: 8),
-                Text(
-                  'Nenhum visitante cadastrado',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-          );
-        }
-
-        visitors =
-            snapshot.data!.docs
-                .map(
-                  (doc) => Visitor.fromMap(doc.data() as Map<String, dynamic>),
-                )
-                .toList();
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: visitors.length,
-          itemBuilder: (context, index) {
-            final visitor = visitors[index];
-            return _buildVisitorCard(visitor);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildVisitorCard(Visitor visitor) {
+  // Método auxiliar para construir os cartões de recursos
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Card(
-      elevation: 1,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        leading: Icon(Icons.person_outline, color: AppColors.primary),
-        title: Text(visitor.name, style: const TextStyle(fontSize: 14)),
-        subtitle: Text(
-          'Status: ${visitor.status}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color:
-                visitor.status == 'Pendente'
-                    ? Colors.orange.shade100
-                    : Colors.green.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            visitor.status,
-            style: TextStyle(
-              fontSize: 12,
-              color:
-                  visitor.status == 'Pendente'
-                      ? Colors.orange.shade800
-                      : Colors.green.shade800,
-            ),
-          ),
-        ),
-        onTap: () => _viewVisitorDetails(visitor),
+        leading: Icon(icon, color: color),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        onTap: onTap,
       ),
     );
   }
 
-  void _registerNewVisitor(BuildContext context) {
+  Widget _buildQRCodeCard(AgendamentoResponse appointment) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('QR Code para: ${appointment.visitante.nome}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Visita em: ${DateFormat('dd/MM/yyyy HH:mm').format(appointment.dataHoraVisita)}', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            Center(
+              child: QrImageView(
+                data: appointment.qrToken,
+                version: QrVersions.auto,
+                size: 140,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text('Unidade: Apto 101', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copiar'),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: appointment.qrToken));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('QR copiado!')),
+                    );
+                  },
+                ),
+                TextButton(
+                  onPressed: () => _viewAppointmentDetails(appointment),
+                  child: const Text('Detalhes'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _registerNewVisitorDialog(BuildContext context) {
     final nameController = TextEditingController();
+    final documentController = TextEditingController();
+    final vehicleController = TextEditingController();
+    final dateController = TextEditingController();
+    DateTime? selectedDate;
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Cadastrar Novo Visitante'),
-            content: TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nome do Visitante',
-                border: OutlineInputBorder(),
+      builder: (context) => AlertDialog(
+        title: const Text('Cadastrar Novo Visitante'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome do Visitante',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
+              const SizedBox(height: 10),
+              TextField(
+                controller: documentController,
+                decoration: const InputDecoration(
+                  labelText: 'Documento do Visitante',
+                  border: OutlineInputBorder(),
+                ),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  if (nameController.text.isNotEmpty) {
-                    _registerVisitor(nameController.text);
-                    Navigator.pop(context);
+              const SizedBox(height: 10),
+              TextField(
+                controller: vehicleController,
+                decoration: const InputDecoration(
+                  labelText: 'Veículo (Opcional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: dateController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Data e Hora da Visita',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_today),
+                ),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (time != null) {
+                      selectedDate = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        time.hour,
+                        time.minute,
+                      );
+
+                      final now = DateTime.now();
+                      final combinedDateTime = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        time.hour,
+                        time.minute,
+                      );
+
+                      if (combinedDateTime.isBefore(now.subtract(const Duration(seconds: 1))) ||
+                          (combinedDateTime.isAtSameMomentAs(now) && combinedDateTime.second <= now.second)) {
+                        selectedDate = DateTime(
+                          now.year,
+                          now.month,
+                          now.day,
+                          now.hour,
+                          now.minute,
+                          now.second,
+                          now.millisecond,
+                        ).add(const Duration(seconds: 1));
+                      } else {
+                        selectedDate = combinedDateTime;
+                      }
+
+                      dateController.text =
+                          DateFormat('dd/MM/yyyy HH:mm').format(selectedDate!);
+                    }
                   }
                 },
-                child: const Text('Gerar QR Code'),
               ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty &&
+                  documentController.text.isNotEmpty &&
+                  selectedDate != null) {
+                _registerVisitor(
+                  nameController.text,
+                  documentController.text,
+                  vehicleController.text.isEmpty ? null : vehicleController.text,
+                  selectedDate!,
+                );
+                Navigator.pop(context);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Por favor, preencha todos os campos obrigatórios.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Gerar QR Code'),
+          ),
+        ],
+      ),
     );
   }
 
-  void _viewVisitorDetails(Visitor visitor) {
+  void _viewAppointmentDetails(AgendamentoResponse appointment) {
     showModalBottomSheet(
       context: context,
-      builder:
-          (context) => Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: Icon(Icons.person_outline, color: AppColors.primary),
-                  title: Text(visitor.name),
-                  subtitle: Text('Entrada: ${visitor.formattedEntryTime}'),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: Icon(
-                    visitor.status == 'Pendente'
-                        ? Icons.pending_actions
-                        : Icons.verified,
-                    color:
-                        visitor.status == 'Pendente'
-                            ? Colors.orange
-                            : Colors.green,
-                  ),
-                  title: Text('Status: ${visitor.status}'),
-                  subtitle: Text('Unidade: ${visitor.unit ?? "Não informado"}'),
-                ),
-                const SizedBox(height: 16),
-                if (visitor.status == 'Pendente')
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _updateVisitorStatus(visitor, 'Aprovado');
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Aprovar Visitante'),
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Fechar'),
-                  ),
-                ),
-              ],
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline, color: AppColors.primary),
+              title: Text(appointment.visitante.nome),
+              subtitle: Text('Documento: ${appointment.visitante.documento}'),
             ),
-          ),
+            ListTile(
+              leading: const Icon(Icons.access_time, color: Colors.grey),
+              title: Text('Visita: ${DateFormat('dd/MM/yyyy HH:mm').format(appointment.dataHoraVisita.toLocal())}'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(
+                appointment.status == AgendamentoStatus.pendente
+                    ? Icons.pending_actions
+                    : Icons.verified,
+                color: appointment.status == AgendamentoStatus.pendente
+                    ? Colors.orange
+                    : Colors.green,
+              ),
+              title: Text('Status: ${appointment.status.name}'),
+            ),
+            if (appointment.visitante.veiculo != null && appointment.visitante.veiculo!.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.car_rental, color: AppColors.primary),
+                title: Text('Veículo: ${appointment.visitante.veiculo}'),
+              ),
+            const SizedBox(height: 16),
+            if (appointment.status == AgendamentoStatus.pendente)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancelar Agendamento'),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fechar'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Future<void> _updateVisitorStatus(Visitor visitor, String newStatus) async {
-    await FirebaseFirestore.instance
-        .collection('visitors')
-        .doc(visitor.id)
-        .update({'status': newStatus});
-
-    if (mounted) {
-      setState(() {
-        visitors =
-            visitors.map((v) {
-              if (v.id == visitor.id) {
-                return v.copyWith(status: newStatus);
-              }
-              return v;
-            }).toList();
-      });
-    }
+  Widget _buildWelcomeCard(String? userName) {
+    return Card(
+      margin: EdgeInsets.zero, // Remove todas as margens do Card
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(0), // Remova as bordas arredondadas para um visual mais "full-width"
+      ),
+      elevation: 4,
+      child: Container(
+        width: double.infinity, // Garante que o Container dentro do Card ocupe toda a largura disponível
+        padding: const EdgeInsets.all(16), // Mantém o padding interno do conteúdo
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // A coluna só ocupa o espaço vertical que precisa
+          children: [
+            const Icon(Icons.home, size: 50, color: Colors.blue), // Ícone para morador
+            const SizedBox(height: 10),
+            Text(
+              'Bem-vindo, ${userName ?? 'Morador'}!',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              DateFormat('dd/MM/yyyy').format(DateTime.now()),
+              style: const TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

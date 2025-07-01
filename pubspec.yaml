@@ -12,32 +12,38 @@ dependencies:
 
   # Estado, requisições, armazenamento
   flutter_bloc: ^9.1.1
-  dio: ^5.3.3
-  shared_preferences: ^2.2.2
+  dio: ^5.3.3 # Já presente
+  shared_preferences: ^2.2.2 # Já presente
 
   # Notificações e QR Code
-  flutter_local_notifications: ^17.1.0
+  flutter_local_notifications: ^19.3.0
   qr_code_scanner: ^1.0.1
   qr_flutter: ^4.1.0
-  permission_handler: ^10.4.0
+  permission_handler: ^12.0.0+1
 
   # Utilitários
-  jwt_decoder: ^2.0.1
+  jwt_decoder: ^2.0.1 # Já presente
   flutter_svg: ^2.0.7
   google_fonts: ^6.1.0
   shimmer: ^3.0.0
   intl: ^0.20.2
 
+  # Dependência para serialização/desserialização de JSON
+  json_annotation: ^4.8.1 # Adicione esta linha
+
   # Firebase
-  firebase_core: ^2.14.0
-  firebase_auth: ^4.6.3
-  firebase_messaging: ^14.7.16
-  cloud_firestore: ^4.8.0
+  firebase_core: ^3.14.0
+  firebase_auth: ^5.6.0
+  firebase_messaging: ^15.2.7
+  cloud_firestore: ^5.6.9
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
+  flutter_lints: ^6.0.0
+  # Ferramentas para gerar código automaticamente (para json_serializable)
+  build_runner: ^2.4.6 # Adicione esta linha
+  json_serializable: ^6.7.1 # Adicione esta linha
 
 flutter:
   uses-material-design: true

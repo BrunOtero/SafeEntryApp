@@ -9,7 +9,7 @@ class MyQrCodeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Substitua pelo ID real do usuário ou dados que você quer no QR Code
-    final String qrData = 'USER_ID:12345';
+    const String qrData = 'USER_ID:12345';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Meu QR Code')),
@@ -45,7 +45,7 @@ class MyQrCodeScreen extends StatelessWidget {
               width: 200,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  Clipboard.setData(ClipboardData(text: qrData));
+                  Clipboard.setData(const ClipboardData(text: qrData));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(

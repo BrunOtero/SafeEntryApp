@@ -1,8 +1,10 @@
+// SafeEntry/App/lib/screens/concierge/home_concierge.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
-import 'package:safeentry/models/visitor.dart';
 import 'package:safeentry/screens/concierge/qr_scanner_screen.dart';
+import 'package:safeentry/services/auth_service.dart';
+import 'package:safeentry/screens/concierge/concierge_entries_list_screen.dart'; // Importar nova tela
+import 'package:intl/intl.dart';
+import 'package:safeentry/dto/visit_service_agendamento_response.dart'; // Mantido para o dialog de QR scanner
 
 class ConciergeHomeScreen extends StatefulWidget {
   const ConciergeHomeScreen({super.key});
@@ -12,36 +14,86 @@ class ConciergeHomeScreen extends StatefulWidget {
 }
 
 class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
+  final AuthService _authService = AuthService();
+  String? _currentUserName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
+    _currentUserName = await _authService.getUserName();
+    if (mounted) {
+      setState(() {}); // Forçar a reconstrução para exibir o nome
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Painel do Porteiro'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () {
-                Navigator.pushReplacementNamed(context, '/concierge-login');
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Painel do Porteiro'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await _authService.logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0), // Mantém o padding geral da tela
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Novo posicionamento do card de boas-vindas
+            _buildWelcomeCard(_currentUserName), // Passa o nome para o card
+            const SizedBox(height: 24), // Espaçamento após o card de boas-vindas
+
+            // Cartões de funcionalidades
+            _buildFeatureCard(
+              icon: Icons.qr_code_scanner,
+              title: 'Escanear QR Code',
+              color: Theme.of(context).colorScheme.primary,
+              onTap: () async {
+                final scannedData = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const QRScannerScreen(),
+                  ),
+                );
+
+                if (scannedData != null && mounted) {
+                  if (scannedData is VisitServiceAgendamentoResponse) {
+                    _showConfirmationDialog(context, scannedData);
+                  }
+                }
               },
             ),
-          ],
-          bottom: const TabBar(
-            tabs: [Tab(text: 'Pendentes'), Tab(text: 'Confirmados')],
-          ),
-        ),
-        body: Column(
-          children: [
-            _buildWelcomeCard(),
-            _buildScannerCard(context),
-            const SizedBox(height: 16),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildVisitorList('Pendente'),
-                  _buildVisitorList('Confirmado'),
-                ],
+            const SizedBox(height: 10),
+            _buildFeatureCard(
+              icon: Icons.list_alt,
+              title: 'Entradas Cadastradas',
+              color: Theme.of(context).colorScheme.secondary,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ConciergeEntriesListScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 32), // Espaçamento antes da versão
+            const Center(
+              child: Text(
+                'Versão 3.2.3/4/195', // Manter a versão
+                style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
           ],
@@ -50,19 +102,43 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  Widget _buildWelcomeCard() {
+  // Método auxiliar para construir os cartões de recursos
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Card(
-      margin: const EdgeInsets.all(16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  // Método _buildWelcomeCard atualizado para receber e exibir o nome
+  Widget _buildWelcomeCard(String? userName) {
+    return Card(
+      margin: EdgeInsets.zero, // Remove todas as margens
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(0), // Opcional: remova bordas arredondadas se quiser
+      ),
       elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: Container(
+        width: double.infinity, // Ocupa toda a largura disponível
+        padding: const EdgeInsets.all(16), // Mantém o padding interno
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.security, size: 50, color: Colors.blue),
             const SizedBox(height: 10),
-            const Text(
-              'Bem-vindo, Porteiro!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              'Bem-vindo, ${userName ?? 'Porteiro'}!',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Text(
@@ -75,149 +151,8 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  Widget _buildScannerCard(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Verificação de Visitantes',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Escanear QR Code'),
-              onPressed: () async {
-                final visitor = await Navigator.push<Visitor>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const QRScannerScreen(),
-                  ),
-                );
-
-                if (visitor != null && mounted) {
-                  _showConfirmationDialog(context, visitor);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVisitorList(String status) {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('visitors')
-              .where('status', isEqualTo: status)
-              .orderBy('entryTime', descending: true)
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(child: Text('Erro ao carregar visitantes.'));
-        }
-
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Nenhum visitante encontrado.'));
-        }
-
-        final visitors =
-            snapshot.data!.docs
-                .map(
-                  (doc) => Visitor.fromMap(doc.data() as Map<String, dynamic>),
-                )
-                .toList();
-
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: visitors.length,
-          itemBuilder: (context, index) {
-            final visitor = visitors[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              elevation: 2,
-              child: ListTile(
-                leading: const Icon(Icons.person, size: 40),
-                title: Text(
-                  visitor.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Text('Morador: ${visitor.residentName}'),
-                    Text('Unidade: ${visitor.unit ?? "Não informado"}'),
-                    Text('Data: ${visitor.formattedEntryTime}'),
-                  ],
-                ),
-                trailing:
-                    status == 'Pendente'
-                        ? IconButton(
-                          icon: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                          onPressed: () => _confirmVisitor(visitor),
-                        )
-                        : const Icon(Icons.verified, color: Colors.green),
-                onTap: () => _showVisitorDetails(context, visitor),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _confirmVisitor(Visitor visitor) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('visitors')
-          .doc(visitor.id)
-          .update({'status': 'Confirmado'});
-
-      await _notifyResident(visitor.residentId, visitor.name);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${visitor.name} autorizado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erro ao confirmar visitante'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _notifyResident(String residentId, String visitorName) async {
-    await FirebaseFirestore.instance.collection('notifications').add({
-      'residentId': residentId,
-      'message': '$visitorName foi autorizado a entrar',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-  }
-
-  void _showConfirmationDialog(BuildContext context, Visitor visitor) {
+  // Mantido o _showConfirmationDialog, que é chamado após o escaneamento/registro
+  void _showConfirmationDialog(BuildContext context, VisitServiceAgendamentoResponse appointment) {
     showDialog(
       context: context,
       builder:
@@ -227,10 +162,10 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('Nome', visitor.name),
-                _buildDetailRow('Morador', visitor.residentName),
-                _buildDetailRow('Unidade', visitor.unit),
-                _buildDetailRow('Data', visitor.formattedEntryTime),
+                _buildDetailRow('Nome', appointment.visitante.nome),
+                _buildDetailRow('Documento', appointment.visitante.documento),
+                _buildDetailRow('Veículo', appointment.visitante.veiculo),
+                _buildDetailRow('Data da Visita', DateFormat('dd/MM/yyyy HH:mm').format(appointment.dataHoraVisita)),
               ],
             ),
             actions: [
@@ -243,51 +178,7 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  void _showVisitorDetails(BuildContext context, Visitor visitor) {
-    showModalBottomSheet(
-      context: context,
-      builder:
-          (context) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Center(
-                  child: Icon(Icons.person, size: 60, color: Colors.blue),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Visitante: ${visitor.name}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Divider(),
-                _buildDetailRow('Morador', visitor.residentName),
-                _buildDetailRow('Unidade', visitor.unit),
-                _buildDetailRow('Status', visitor.status),
-                _buildDetailRow('Data', visitor.formattedEntryTime),
-                const SizedBox(height: 24),
-                if (visitor.status == 'Pendente')
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _confirmVisitor(visitor);
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Autorizar Entrada'),
-                    ),
-                  ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-    );
-  }
-
+  // Método auxiliar para o dialog de confirmação
   Widget _buildDetailRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),

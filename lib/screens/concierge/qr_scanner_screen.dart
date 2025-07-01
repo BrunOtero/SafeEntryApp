@@ -1,11 +1,11 @@
+// SafeEntry/App/lib/screens/concierge/qr_scanner_screen.dart
 import 'dart:async';
-import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'package:safeentry/models/visitor.dart';
+import 'package:safeentry/services/gate_service.dart';
+import 'package:safeentry/services/visit_service.dart';
+import 'package:safeentry/dto/agendamento_response.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -19,6 +19,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   QRViewController? controller;
   bool hasScanned = false;
   bool _hasPermission = false;
+  final GateService _gateService = GateService();
+  final VisitService _visitService = VisitService();
+  final TextEditingController _qrTokenController = TextEditingController();
+  final TextEditingController _observacoesController = TextEditingController();
 
   @override
   void initState() {
@@ -32,57 +36,110 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       setState(() {
         _hasPermission = status == PermissionStatus.granted;
       });
+      // If permission is denied, show a snackbar. The UI will still render the manual input.
+      if (!_hasPermission) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permissão da câmera negada. Use a entrada manual.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
     controller?.dispose();
+    _qrTokenController.dispose();
+    _observacoesController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasPermission) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Permissão necessária')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.no_photography, size: 80, color: Colors.red),
-              const SizedBox(height: 16),
-              const Text(
-                'Permissão da câmera negada',
-                style: TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _checkCameraPermission,
-                child: const Text('Tentar novamente'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Ler QR Code'), centerTitle: true),
       body: Column(
         children: [
-          Expanded(
-            flex: 5,
-            child: QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
-              overlay: QrScannerOverlayShape(
-                borderColor: Colors.blue,
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 10,
-                cutOutSize: 300,
+          // Conditionally render the QR scanner view
+          if (_hasPermission)
+            Expanded(
+              flex: 5,
+              child: QRView(
+                key: qrKey,
+                onQRViewCreated: _onQRViewCreated,
+                overlay: QrScannerOverlayShape(
+                  borderColor: Colors.blue,
+                  borderRadius: 10,
+                  borderLength: 30,
+                  borderWidth: 10,
+                  cutOutSize: 300,
+                ),
               ),
+            )
+          else // If no camera permission, allocate more space for manual input
+            const Expanded(
+              flex: 3, // Adjust flex as needed to give more space
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.no_photography, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'Câmera não disponível. Por favor, use a entrada manual abaixo.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          
+          // Manual input section (always visible)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _qrTokenController,
+                  decoration: const InputDecoration(
+                    labelText: 'Inserir QR Token Manualmente',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.text_fields),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _observacoesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações (Opcional)',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.notes),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    if (_qrTokenController.text.isNotEmpty) {
+                      _processQRCode(
+                        _qrTokenController.text,
+                        observacoes: _observacoesController.text.isEmpty ? null : _observacoesController.text,
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Por favor, insira um token QR.'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Registrar Entrada Manualmente'),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -105,77 +162,43 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       if (!hasScanned && mounted) {
         hasScanned = true;
         controller.pauseCamera();
+        _qrTokenController.text = scanData.code ?? ''; // Populate manual input with scanned code
         _processQRCode(scanData.code);
       }
     });
   }
 
-  Future<void> _processQRCode(String? qrCode) async {
+  Future<void> _processQRCode(String? qrCode, {String? observacoes}) async {
     if (qrCode == null || !mounted) return;
 
     try {
-      final data = jsonDecode(qrCode) as Map<String, dynamic>;
-      final visitor = Visitor.fromMap(data);
+      // 1. Registrar a entrada no Gate Service
+      final entradaResponse = await _gateService.registerEntry(qrToken: qrCode, observacoes: observacoes); //
 
-      // Atualiza o status no Firestore
-      await FirebaseFirestore.instance
-          .collection('visitors')
-          .doc(visitor.id)
-          .update({'status': 'Confirmado'});
+      // 2. Buscar os detalhes completos do agendamento no Visits Service usando o qrCode
+      final AgendamentoResponse actualAppointment = await _visitService.getAppointmentByQrToken(qrCode); //
 
-      // Notifica o morador
-      await _notifyResident(visitor.residentId, visitor.name);
-
-      // Mostra os detalhes do visitante
       if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Visitante Autorizado'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Nome: ${visitor.name}'),
-                    Text('Morador: ${visitor.residentName}'),
-                    Text('Unidade: ${visitor.unit}'),
-                    Text(
-                      'Data: ${DateFormat('dd/MM/yyyy HH:mm').format(visitor.entryTime)}',
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Fecha o dialog
-                      Navigator.pop(context); // Volta para tela anterior
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-        ).then((_) {
-          controller?.resumeCamera();
-          hasScanned = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Entrada registrada com sucesso! Visitante: ${actualAppointment.visitante.nome}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Retorna o objeto AgendamentoResponse REAL com os dados do visitante
+        Navigator.pop(context, actualAppointment);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('QR Code inválido!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao registrar entrada: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
         controller?.resumeCamera();
         hasScanned = false;
       }
     }
-  }
-
-  Future<void> _notifyResident(String residentId, String visitorName) async {
-    await FirebaseFirestore.instance.collection('notifications').add({
-      'residentId': residentId,
-      'message': '$visitorName foi autorizado a entrar.',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
   }
 }

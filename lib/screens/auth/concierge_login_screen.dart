@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:safeentry/constants/app_colors.dart';
 import 'package:safeentry/screens/concierge/home_concierge.dart';
+import 'package:safeentry/services/auth_service.dart';
+import 'package:safeentry/dto/user_type.dart';
 
 class ConciergeLoginScreen extends StatelessWidget {
+  ConciergeLoginScreen({super.key});
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
-  ConciergeLoginScreen({super.key});
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -36,8 +39,6 @@ class ConciergeLoginScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Campo de E-mail
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
@@ -56,10 +57,7 @@ class ConciergeLoginScreen extends StatelessWidget {
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
-
                 const SizedBox(height: 16),
-
-                // Campo de Senha
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
@@ -78,10 +76,7 @@ class ConciergeLoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // Botão ENTRAR
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -93,23 +88,41 @@ class ConciergeLoginScreen extends StatelessWidget {
                       ),
                       elevation: 2,
                     ),
-                    onPressed: () {
-                      // Validação simples - em produção, use AuthService
-                      if (_emailController.text.isNotEmpty &&
-                          _passwordController.text.isNotEmpty) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ConciergeHomeScreen(),
-                          ),
+                    onPressed: () async {
+                      try {
+                        final authResponse = await _authService.login(
+                          _emailController.text,
+                          _passwordController.text,
                         );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Preencha todos os campos'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        if (authResponse.tipoUsuario == UserType.porteiro.name ||
+                            authResponse.tipoUsuario == UserType.admin.name) {
+                          if (context.mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ConciergeHomeScreen(),
+                              ),
+                            );
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Apenas porteiros ou administradores podem usar esta tela de login.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       }
                     },
                     child: const Text(
@@ -122,10 +135,7 @@ class ConciergeLoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Link para suporte
                 TextButton(
                   onPressed: () {
                     // Navegar para tela de suporte
