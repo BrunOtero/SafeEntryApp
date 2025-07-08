@@ -8,7 +8,6 @@ class MyQrCodeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Substitua pelo ID real do usuário ou dados que você quer no QR Code
     const String qrData = 'USER_ID:12345';
 
     return Scaffold(

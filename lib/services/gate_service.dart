@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:safeentry/services/auth_service.dart';
 import 'package:safeentry/dto/entrada_request.dart';
 import 'package:safeentry/dto/entrada_response.dart';
-// Import for response details
 
 class GateService {
   final Dio _dio = Dio();

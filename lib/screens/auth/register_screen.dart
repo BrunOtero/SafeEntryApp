@@ -1,4 +1,3 @@
-// SafeEntry/App/lib/screens/auth/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:safeentry/constants/app_colors.dart';
 import 'package:safeentry/services/auth_service.dart';
@@ -66,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Go back to login screen
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -141,13 +140,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 DropdownButtonFormField<UserType>(
                   decoration: _inputDecoration('Tipo de Usuário', Icons.person_outline),
                   value: _selectedUserType,
-                  dropdownColor: AppColors.surface, // Adjust dropdown background
+                  dropdownColor: AppColors.surface,
                   items: UserType.values.map((type) {
                     return DropdownMenuItem(
                       value: type,
                       child: Text(
                         type.name.capitalize(),
-                        style: const TextStyle(color: AppColors.onSurface), // Text color inside dropdown
+                        style: const TextStyle(color: AppColors.onSurface),
                       ),
                     );
                   }).toList(),
@@ -170,7 +169,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary, // Use your secondary color
+                      backgroundColor: AppColors.secondary,
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -193,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(context); // Go back to login
+                    Navigator.pop(context);
                   },
                   child: const Text(
                     'Já tem uma conta? Faça login',
@@ -226,7 +225,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-// Extension to capitalize the first letter of a string for display in Dropdown
 extension StringExtension on String {
   String capitalize() {
     return "${this[0].toUpperCase()}${substring(1)}";

@@ -3,7 +3,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:safeentry/dto/auth_request.dart';
 import 'package:safeentry/dto/auth_response.dart';
-import 'package:safeentry/dto/register_request.dart'; // Added for register functionality
+import 'package:safeentry/dto/register_request.dart';
 
 class AuthService {
   final Dio _dio = Dio();
@@ -17,7 +17,7 @@ class AuthService {
       );
       if (response.statusCode == 200) {
         final authResponse = AuthResponse.fromJson(response.data);
-        await _saveAuthData(authResponse.token, authResponse.tipoUsuario); // Pass tipoUsuario as string
+        await _saveAuthData(authResponse.token, authResponse.tipoUsuario);
         return authResponse;
       } else {
         throw Exception('Failed to login: ${response.data}');
@@ -33,16 +33,14 @@ class AuthService {
     }
   }
 
-  Future<void> register(RegisterRequest request) async { // Changed return type to void
+  Future<void> register(RegisterRequest request) async {
     try {
       final response = await _dio.post(
         '$_baseUrl/register',
         data: request.toJson(),
       );
       if (response.statusCode == 201) {
-        // Registration successful. Backend returns UserDTO, not JWT directly for register.
-        // No need to save token here, as the user will need to log in after registration.
-        return; // Indicate success
+        return;
       } else {
         throw Exception('Failed to register: ${response.data}');
       }
@@ -63,8 +61,8 @@ class AuthService {
     await prefs.setString('user_type', userType);
     final decodedToken = JwtDecoder.decode(token);
     await prefs.setString('user_id', decodedToken['userId']);
-    await prefs.setString('user_name', decodedToken['name'] ?? ''); // Assuming name is in JWT
-    await prefs.setString('user_email', decodedToken['sub'] ?? ''); // Assuming email is in 'sub'
+    await prefs.setString('user_name', decodedToken['name'] ?? '');
+    await prefs.setString('user_email', decodedToken['sub'] ?? '');
   }
 
   Future<String?> getToken() async {

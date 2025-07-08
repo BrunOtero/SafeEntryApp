@@ -11,7 +11,6 @@ enum AgendamentoStatus {
   usado,
 }
 
-// For serialization/deserialization with json_annotation
 extension AgendamentoStatusExtension on AgendamentoStatus {
   String toJson() => name;
 }

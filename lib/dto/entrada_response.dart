@@ -1,8 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
 
-// part 'entrada_response.g.dart'; // Uncomment and run `flutter pub run build_runner build`
-
-// @JsonSerializable()
 class EntradaResponse {
   final String id;
   final String agendamentoId;
@@ -19,8 +16,6 @@ class EntradaResponse {
     this.observacoes,
   });
 
-  // factory EntradaResponse.fromJson(Map<String, dynamic> json) => _$EntradaResponseFromJson(json);
-  // Map<String, dynamic> toJson() => _$EntradaResponseToJson(this);
   factory EntradaResponse.fromJson(Map<String, dynamic> json) {
     return EntradaResponse(
       id: json['id'],

@@ -1,10 +1,9 @@
-// SafeEntry/App/lib/screens/concierge/home_concierge.dart
 import 'package:flutter/material.dart';
 import 'package:safeentry/screens/concierge/qr_scanner_screen.dart';
 import 'package:safeentry/services/auth_service.dart';
-import 'package:safeentry/screens/concierge/concierge_entries_list_screen.dart'; // Importar nova tela
+import 'package:safeentry/screens/concierge/concierge_entries_list_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:safeentry/dto/visit_service_agendamento_response.dart'; // Mantido para o dialog de QR scanner
+import 'package:safeentry/dto/visit_service_agendamento_response.dart';
 
 class ConciergeHomeScreen extends StatefulWidget {
   const ConciergeHomeScreen({super.key});
@@ -26,7 +25,7 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
   Future<void> _loadUserInfo() async {
     _currentUserName = await _authService.getUserName();
     if (mounted) {
-      setState(() {}); // Forçar a reconstrução para exibir o nome
+      setState(() {});
     }
   }
 
@@ -49,15 +48,13 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0), // Mantém o padding geral da tela
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Novo posicionamento do card de boas-vindas
-            _buildWelcomeCard(_currentUserName), // Passa o nome para o card
-            const SizedBox(height: 24), // Espaçamento após o card de boas-vindas
+            _buildWelcomeCard(_currentUserName),
+            const SizedBox(height: 24),
 
-            // Cartões de funcionalidades
             _buildFeatureCard(
               icon: Icons.qr_code_scanner,
               title: 'Escanear QR Code',
@@ -89,10 +86,10 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
                 );
               },
             ),
-            const SizedBox(height: 32), // Espaçamento antes da versão
+            const SizedBox(height: 32),
             const Center(
               child: Text(
-                'Versão 3.2.3/4/195', // Manter a versão
+                'Versão 3.2.3/4/195',
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
@@ -102,7 +99,6 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  // Método auxiliar para construir os cartões de recursos
   Widget _buildFeatureCard({
     required IconData icon,
     required String title,
@@ -120,17 +116,16 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  // Método _buildWelcomeCard atualizado para receber e exibir o nome
   Widget _buildWelcomeCard(String? userName) {
     return Card(
-      margin: EdgeInsets.zero, // Remove todas as margens
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0), // Opcional: remova bordas arredondadas se quiser
+        borderRadius: BorderRadius.circular(0),
       ),
       elevation: 4,
       child: Container(
-        width: double.infinity, // Ocupa toda a largura disponível
-        padding: const EdgeInsets.all(16), // Mantém o padding interno
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -151,7 +146,6 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  // Mantido o _showConfirmationDialog, que é chamado após o escaneamento/registro
   void _showConfirmationDialog(BuildContext context, VisitServiceAgendamentoResponse appointment) {
     showDialog(
       context: context,
@@ -178,7 +172,6 @@ class _ConciergeHomeScreenState extends State<ConciergeHomeScreen> {
     );
   }
 
-  // Método auxiliar para o dialog de confirmação
   Widget _buildDetailRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),

@@ -1,4 +1,3 @@
-// SafeEntry/App/lib/services/visit_service.dart
 import 'package:dio/dio.dart';
 import 'package:safeentry/services/auth_service.dart';
 import 'package:safeentry/dto/agendamento_request.dart';
@@ -116,7 +115,6 @@ class VisitService {
     }
   }
 
-  // NOVO MÉTODO: Obter agendamento pelo QR Token
   Future<AgendamentoResponse> getAppointmentByQrToken(String qrToken) async {
     final token = await _authService.getToken();
     if (token == null) {
@@ -124,7 +122,6 @@ class VisitService {
     }
 
     try {
-      // O endpoint é /api/agendamentos/qr/{qrToken}
       final response = await _dio.get(
         '$_baseUrl/qr/$qrToken',
         options: Options(
@@ -138,7 +135,6 @@ class VisitService {
       }
     } on DioException catch (e) {
       if (e.response != null) {
-        // Erros 4xx, como 404 (Not Found), serão tratados aqui
         throw Exception('QR Token lookup error: ${e.response?.data['message'] ?? e.response?.statusCode}');
       } else {
         throw Exception('QR Token lookup error: ${e.message}');

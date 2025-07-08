@@ -2,9 +2,6 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:safeentry/dto/agendamento_status.dart';
 import 'package:safeentry/dto/visitante_info.dart';
 
-// part 'agendamento_response.g.dart'; // Uncomment and run `flutter pub run build_runner build`
-
-// @JsonSerializable()
 class AgendamentoResponse {
   final String id;
   final String moradorId;
@@ -28,8 +25,6 @@ class AgendamentoResponse {
     required this.criadoEm,
   });
 
-  // factory AgendamentoResponse.fromJson(Map<String, dynamic> json) => _$AgendamentoResponseFromJson(json);
-  // Map<String, dynamic> toJson() => _$AgendamentoResponseToJson(this);
   factory AgendamentoResponse.fromJson(Map<String, dynamic> json) {
     return AgendamentoResponse(
       id: json['id'],
@@ -40,7 +35,7 @@ class AgendamentoResponse {
       usado: json['usado'],
       status: AgendamentoStatus.values.firstWhere(
         (e) => e.name == json['status'],
-        orElse: () => AgendamentoStatus.pendente, // Default or error handling
+        orElse: () => AgendamentoStatus.pendente,
       ),
       criadoEm: DateTime.parse(json['criadoEm']),
     );

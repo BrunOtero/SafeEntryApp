@@ -35,7 +35,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Agendamento cancelado com sucesso!')),
         );
-        _refreshAppointments(); // Recarrega a lista após o cancelamento
+        _refreshAppointments();
       }
     } catch (e) {
       if (mounted) {
@@ -76,7 +76,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
             );
           } else {
             final appointments = snapshot.data!;
-            return RefreshIndicator( // Permite "puxar para atualizar"
+            return RefreshIndicator(
               onRefresh: _refreshAppointments,
               child: ListView.builder(
                 padding: const EdgeInsets.all(16.0),
@@ -164,7 +164,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
           ElevatedButton(
             onPressed: () {
               _cancelAppointment(appointmentId);
-              Navigator.pop(context); // Fecha o dialog
+              Navigator.pop(context);
             },
             child: const Text('Sim', style: TextStyle(color: Colors.white)),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),

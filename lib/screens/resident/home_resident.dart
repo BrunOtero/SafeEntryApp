@@ -61,7 +61,7 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
       final filteredAppointments = allAppointments
           .where((app) => app.status == AgendamentoStatus.pendente)
           .toList();
-      filteredAppointments.sort((a, b) => b.dataHoraVisita.compareTo(a.dataHoraVisita)); // Ordenação do mais recente para o mais antigo
+      filteredAppointments.sort((a, b) => b.dataHoraVisita.compareTo(a.dataHoraVisita));
       return filteredAppointments;
     } catch (e) {
       if (mounted) {
@@ -153,9 +153,9 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Garante que os filhos se estendam horizontalmente
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildWelcomeCard(_currentUserName), // Adiciona o card de boas-vindas
+              _buildWelcomeCard(_currentUserName),
               const Divider(height: 32),
               _buildFeatureCard(
                 icon: Icons.person_add,
@@ -227,7 +227,6 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
     );
   }
 
-  // Método auxiliar para construir os cartões de recursos
   Widget _buildFeatureCard({
     required IconData icon,
     required String title,
@@ -487,18 +486,18 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
 
   Widget _buildWelcomeCard(String? userName) {
     return Card(
-      margin: EdgeInsets.zero, // Remove todas as margens do Card
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0), // Remova as bordas arredondadas para um visual mais "full-width"
+        borderRadius: BorderRadius.circular(0),
       ),
       elevation: 4,
       child: Container(
-        width: double.infinity, // Garante que o Container dentro do Card ocupe toda a largura disponível
-        padding: const EdgeInsets.all(16), // Mantém o padding interno do conteúdo
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // A coluna só ocupa o espaço vertical que precisa
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.home, size: 50, color: Colors.blue), // Ícone para morador
+            const Icon(Icons.home, size: 50, color: Colors.blue),
             const SizedBox(height: 10),
             Text(
               'Bem-vindo, ${userName ?? 'Morador'}!',

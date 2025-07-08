@@ -5,9 +5,8 @@ import 'firebase_options.dart';
 import 'package:safeentry/constants/app_colors.dart';
 import 'package:safeentry/screens/auth/login_screen.dart';
 import 'package:safeentry/screens/concierge/home_concierge.dart';
-// import 'package:safeentry/screens/auth/concierge_login_screen.dart'; // REMOVIDO
 import 'package:safeentry/screens/resident/home_resident.dart';
-import 'package:safeentry/screens/auth/register_screen.dart'; // Add this import
+import 'package:safeentry/screens/auth/register_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,10 +49,8 @@ class SafeEntryApp extends StatelessWidget {
         '/': (context) => const LoginScreen(),
         '/login': (context) => const LoginScreen(),
         '/resident': (context) => const ResidentHomeScreen(),
-        // REMOVIDO: '/concierge-login': (context) => ConciergeLoginScreen(),
         '/concierge': (context) => const ConciergeHomeScreen(),
-        '/register': (context) => const RegisterScreen(), // Add the new route here
-        // outras rotas futuras podem ser adicionadas aqui
+        '/register': (context) => const RegisterScreen(),
       },
     );
   }

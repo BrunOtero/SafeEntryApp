@@ -5,7 +5,7 @@ import 'package:safeentry/screens/resident/home_resident.dart';
 import 'package:safeentry/screens/concierge/home_concierge.dart';
 import 'package:safeentry/services/auth_service.dart';
 import 'package:safeentry/dto/user_type.dart';
-import 'package:safeentry/screens/auth/register_screen.dart'; // Add this import
+import 'package:safeentry/screens/auth/register_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -75,7 +75,6 @@ class LoginScreen extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      // Navegar para tela de recuperação de senha (se houver)
                     },
                     child: const Text(
                       'Esqueci minha senha',
@@ -183,7 +182,6 @@ class LoginScreen extends StatelessWidget {
                       style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                     onPressed: () {
-                      // Implementar login com Google
                     },
                   ),
                 ),
@@ -199,7 +197,7 @@ class LoginScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const RegisterScreen()), // Navigate to RegisterScreen
+                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
                         );
                       },
                       child: const Text(

@@ -19,7 +19,6 @@ class Visitor {
     this.unit,
   });
 
-  // Método para converter para Map (Firestore)
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -32,13 +31,12 @@ class Visitor {
     };
   }
 
-  // Factory method para criar a partir de Map (Firestore/JSON)
   factory Visitor.fromMap(Map<String, dynamic> map) {
     return Visitor(
       id:
           map['id'] ??
           map['visitorId'] ??
-          '', // Compatibilidade com campos alternativos
+          '',
       name: map['name'] ?? 'Visitante não identificado',
       residentId: map['residentId'] ?? '',
       residentName: map['residentName'] ?? 'Morador não identificado',
@@ -46,17 +44,15 @@ class Visitor {
       entryTime:
           map['entryTime'] != null
               ? DateTime.parse(map['entryTime'])
-              : DateTime.now(), // Fallback para data atual
+              : DateTime.now(),
       unit: map['unit'],
     );
   }
 
-  // Método para formatar a data de entrada
   String get formattedEntryTime {
     return DateFormat('dd/MM/yyyy HH:mm').format(entryTime);
   }
 
-  // Método para criar cópia com status alterado
   Visitor copyWith({String? status}) {
     return Visitor(
       id: id,

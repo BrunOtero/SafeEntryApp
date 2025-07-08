@@ -138,7 +138,6 @@ class ConciergeLoginScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () {
-                    // Navegar para tela de suporte
                   },
                   child: const Text(
                     'Precisa de ajuda? Contate o administrador',

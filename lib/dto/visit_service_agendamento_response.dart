@@ -1,8 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
 
-// part 'visit_service_agendamento_response.g.dart'; // Uncomment and run `flutter pub run build_runner build`
-
-// @JsonSerializable()
 class VisitServiceAgendamentoResponse {
   final String id;
   final String moradorId;
@@ -26,8 +23,6 @@ class VisitServiceAgendamentoResponse {
     required this.criadoEm,
   });
 
-  // factory VisitServiceAgendamentoResponse.fromJson(Map<String, dynamic> json) => _$VisitServiceAgendamentoResponseFromJson(json);
-  // Map<String, dynamic> toJson() => _$VisitServiceAgendamentoResponseToJson(this);
   factory VisitServiceAgendamentoResponse.fromJson(Map<String, dynamic> json) {
     return VisitServiceAgendamentoResponse(
       id: json['id'],
@@ -52,7 +47,6 @@ class VisitServiceAgendamentoResponse {
       };
 }
 
-// @JsonSerializable()
 class VisitanteInfo {
   final String nome;
   final String documento;
@@ -64,8 +58,6 @@ class VisitanteInfo {
     this.veiculo,
   });
 
-  // factory VisitanteInfo.fromJson(Map<String, dynamic> json) => _$VisitanteInfoFromJson(json);
-  // Map<String, dynamic> toJson() => _$VisitanteInfoToJson(this);
   factory VisitanteInfo.fromJson(Map<String, dynamic> json) {
     return VisitanteInfo(
       nome: json['nome'],

@@ -1,4 +1,3 @@
-// SafeEntry/App/lib/screens/concierge/qr_scanner_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -36,7 +35,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       setState(() {
         _hasPermission = status == PermissionStatus.granted;
       });
-      // If permission is denied, show a snackbar. The UI will still render the manual input.
       if (!_hasPermission) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -62,7 +60,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       appBar: AppBar(title: const Text('Ler QR Code'), centerTitle: true),
       body: Column(
         children: [
-          // Conditionally render the QR scanner view
           if (_hasPermission)
             Expanded(
               flex: 5,
@@ -78,9 +75,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 ),
               ),
             )
-          else // If no camera permission, allocate more space for manual input
+          else
             const Expanded(
-              flex: 3, // Adjust flex as needed to give more space
+              flex: 3,
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -97,7 +94,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               ),
             ),
           
-          // Manual input section (always visible)
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -162,7 +158,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       if (!hasScanned && mounted) {
         hasScanned = true;
         controller.pauseCamera();
-        _qrTokenController.text = scanData.code ?? ''; // Populate manual input with scanned code
+        _qrTokenController.text = scanData.code ?? '';
         _processQRCode(scanData.code);
       }
     });
@@ -172,11 +168,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     if (qrCode == null || !mounted) return;
 
     try {
-      // 1. Registrar a entrada no Gate Service
-      final entradaResponse = await _gateService.registerEntry(qrToken: qrCode, observacoes: observacoes); //
+      final entradaResponse = await _gateService.registerEntry(qrToken: qrCode, observacoes: observacoes);
 
-      // 2. Buscar os detalhes completos do agendamento no Visits Service usando o qrCode
-      final AgendamentoResponse actualAppointment = await _visitService.getAppointmentByQrToken(qrCode); //
+      final AgendamentoResponse actualAppointment = await _visitService.getAppointmentByQrToken(qrCode);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -185,7 +179,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Retorna o objeto AgendamentoResponse REAL com os dados do visitante
         Navigator.pop(context, actualAppointment);
       }
     } catch (e) {

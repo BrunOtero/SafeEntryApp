@@ -1,4 +1,3 @@
-// SafeEntry/App/lib/screens/concierge/concierge_entries_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:safeentry/constants/app_colors.dart';
@@ -58,7 +57,7 @@ class _ConciergeEntriesListScreenState extends State<ConciergeEntriesListScreen>
             );
           } else {
             final entries = snapshot.data!;
-            return RefreshIndicator( // Permite "puxar para atualizar"
+            return RefreshIndicator(
               onRefresh: _refreshEntries,
               child: ListView.builder(
                 padding: const EdgeInsets.all(16.0),
@@ -75,15 +74,13 @@ class _ConciergeEntriesListScreenState extends State<ConciergeEntriesListScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Agendamento ID: ${entry.agendamentoId.substring(0, 8)}...', // Mostrar parte do ID
+                            'Agendamento ID: ${entry.agendamentoId.substring(0, 8)}...',
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                           const Divider(),
                           _buildDetailRow('Data/Hora Entrada', DateFormat('dd/MM/yyyy HH:mm').format(entry.dataHoraEntrada.toLocal())),
                           if (entry.observacoes != null && entry.observacoes!.isNotEmpty)
                             _buildDetailRow('Observações', entry.observacoes!),
-                          // Você pode adicionar mais detalhes do agendamento se for buscar do Visits Service
-                          // (ex: nome do visitante, data agendada)
                           const SizedBox(height: 10),
                         ],
                       ),

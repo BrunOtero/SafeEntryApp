@@ -1,9 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:safeentry/dto/visitante_info.dart';
 
-// part 'agendamento_request.g.dart'; // Uncomment and run `flutter pub run build_runner build`
-
-// @JsonSerializable()
 class AgendamentoRequest {
   @JsonKey(name: 'dataHoraVisita')
   final DateTime dataHoraVisita;
@@ -14,8 +11,6 @@ class AgendamentoRequest {
     required this.visitante,
   });
 
-  // factory AgendamentoRequest.fromJson(Map<String, dynamic> json) => _$AgendamentoRequestFromJson(json);
-  // Map<String, dynamic> toJson() => _$AgendamentoRequestToJson(this);
   factory AgendamentoRequest.fromJson(Map<String, dynamic> json) {
     return AgendamentoRequest(
       dataHoraVisita: DateTime.parse(json['dataHoraVisita']),
